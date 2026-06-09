@@ -1,177 +1,213 @@
 #!/bin/bash
 # ============================================================
 #  VPS AUTO SETUP SCRIPT
-#  TÃ¡c giáº£: phanthemy@gmail.com
-#  DÃ¹ng cho: Ubuntu 22.04 / 24.04 (Oracle Always Free)
+#  Tác giả: phanthemy@gmail.com
+#  Dùng cho: Ubuntu 22.04 / 24.04 (Oracle Always Free)
 #  Projects: wasypro | myspa-jinshang | nhatro
 # ============================================================
 
-set -e  # Dá»«ng náº¿u cÃ³ lá»—i
+set -e  # Dừng nếu có lỗi
 
-# ---------- MÃ€U Sáº®C ----------
+# ---------- MÀU SẮC ----------
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-log()    { echo -e "${GREEN}[âœ“]${NC} $1"; }
+log()    { echo -e "${GREEN}[✓]${NC} $1"; }
 warn()   { echo -e "${YELLOW}[!]${NC} $1"; }
-error()  { echo -e "${RED}[âœ—]${NC} $1"; exit 1; }
-header() { echo -e "\n${BLUE}â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•${NC}"; echo -e "${BLUE}  $1${NC}"; echo -e "${BLUE}â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•${NC}"; }
+error()  { echo -e "${RED}[✗]${NC} $1"; exit 1; }
+header() { echo -e "\n${BLUE}═══════════════════════════════════${NC}"; echo -e "${BLUE}  $1${NC}"; echo -e "${BLUE}═══════════════════════════════════${NC}"; }
 
 # ============================================================
-# BÆ¯á»šC 0: KIá»‚M TRA QUYá»€N ROOT
+# BƯỚC 0: KIỂM TRA QUYỀN ROOT
 # ============================================================
 if [ "$EUID" -ne 0 ]; then
-  error "Cháº¡y script báº±ng sudo: sudo bash install_vps.sh"
+  error "Chạy script bằng sudo: sudo bash install_vps.sh"
 fi
 
-header "VPS SETUP - Báº®T Äáº¦U"
-echo "Thá»i gian: $(date)"
+header "VPS SETUP - BẮT ĐẦU"
+echo "Thời gian: $(date)"
 echo "User: $(whoami)"
 echo "OS: $(lsb_release -d | cut -f2)"
 echo ""
 
 # ============================================================
-# BÆ¯á»šC 1: Cáº¬P NHáº¬T Há»† THá»NG
+# BƯỚC 1: CẬP NHẬT HỆ THỐNG
 # ============================================================
-header "BÆ¯á»šC 1: Cáº­p nháº­t há»‡ thá»‘ng"
+header "BƯỚC 1: Cập nhật hệ thống"
 apt update -y && apt upgrade -y
 apt install -y curl wget git unzip zip build-essential software-properties-common \
                ca-certificates gnupg lsb-release ufw fail2ban dnsutils
-log "Cáº­p nháº­t há»‡ thá»‘ng xong"
+log "Cập nhật hệ thống xong"
 
 # ============================================================
-# BÆ¯á»šC 2: CÃ€I NODE.JS 20 LTS
+# BƯỚC 2: CÀI NODE.JS 20 LTS
 # ============================================================
-header "BÆ¯á»šC 2: CÃ i Node.js 20 LTS"
+header "BƯỚC 2: Cài Node.js 20 LTS"
 if ! command -v node &>/dev/null; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   apt install -y nodejs
-  log "Node.js $(node -v) Ä‘Ã£ cÃ i"
+  log "Node.js $(node -v) đã cài"
 else
-  warn "Node.js Ä‘Ã£ cÃ³: $(node -v)"
+  warn "Node.js đã có: $(node -v)"
 fi
 
 # ============================================================
-# BÆ¯á»šC 3: CÃ€I PM2
+# BƯỚC 3: CÀI PM2
 # ============================================================
-header "BÆ¯á»šC 3: CÃ i PM2"
+header "BƯỚC 3: Cài PM2"
 if ! command -v pm2 &>/dev/null; then
   npm install -g pm2
   pm2 startup systemd -u ubuntu --hp /home/ubuntu | tail -1 | bash || true
-  log "PM2 $(pm2 -v) Ä‘Ã£ cÃ i"
+  log "PM2 $(pm2 -v) đã cài"
 else
-  warn "PM2 Ä‘Ã£ cÃ³: $(pm2 -v)"
+  warn "PM2 đã có: $(pm2 -v)"
 fi
 
 # ============================================================
-# BÆ¯á»šC 4: CÃ€I POSTGRESQL
+# BƯỚC 4: CÀI POSTGRESQL
 # ============================================================
-header "BÆ¯á»šC 4: CÃ i PostgreSQL"
+header "BƯỚC 4: Cài PostgreSQL"
 if ! command -v psql &>/dev/null; then
   apt install -y postgresql postgresql-contrib
   systemctl enable postgresql
   systemctl start postgresql
-  log "PostgreSQL Ä‘Ã£ cÃ i vÃ  khá»Ÿi Ä‘á»™ng"
+  log "PostgreSQL đã cài và khởi động"
 else
-  warn "PostgreSQL Ä‘Ã£ cÃ³: $(psql --version)"
+  warn "PostgreSQL đã có: $(psql --version)"
 fi
 
-# Táº¡o database vÃ  user
+# Tạo database và user
 DB_NAME="crm_dev"
 DB_USER="erp"
 DB_PASS="erp@2024"
 
-sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASS}';" 2>/dev/null || warn "User ${DB_USER} Ä‘Ã£ tá»“n táº¡i"
-sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};" 2>/dev/null || warn "Database ${DB_NAME} Ä‘Ã£ tá»“n táº¡i"
+sudo -u postgres psql -c "CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASS}';" 2>/dev/null || warn "User ${DB_USER} đã tồn tại"
+sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};" 2>/dev/null || warn "Database ${DB_NAME} đã tồn tại"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};" 2>/dev/null || true
-log "Database '${DB_NAME}' vá»›i user '${DB_USER}' Ä‘Ã£ sáºµn sÃ ng"
+log "Database '${DB_NAME}' với user '${DB_USER}' đã sẵn sàng"
 
 # ============================================================
-# BÆ¯á»šC 5: CÃ€I NGINX
+# BƯỚC 5: CÀI NGINX
 # ============================================================
-header "BÆ¯á»šC 5: CÃ i Nginx"
+header "BƯỚC 5: Cài Nginx"
 if ! command -v nginx &>/dev/null; then
   apt install -y nginx
   systemctl enable nginx
   systemctl start nginx
-  log "Nginx $(nginx -v 2>&1 | cut -d/ -f2) Ä‘Ã£ cÃ i"
+  log "Nginx $(nginx -v 2>&1 | cut -d/ -f2) đã cài"
 else
-  warn "Nginx Ä‘Ã£ cÃ³"
+  warn "Nginx đã có"
 fi
 
 # ============================================================
-# BÆ¯á»šC 6: CÃ€I CERTBOT (SSL Let's Encrypt)
+# BƯỚC 6: CÀI CERTBOT (SSL Let's Encrypt)
 # ============================================================
-header "BÆ¯á»šC 6: CÃ i Certbot SSL"
+header "BƯỚC 6: Cài Certbot SSL"
 if ! command -v certbot &>/dev/null; then
   apt install -y certbot python3-certbot-nginx
-  log "Certbot Ä‘Ã£ cÃ i"
+  log "Certbot đã cài"
 else
-  warn "Certbot Ä‘Ã£ cÃ³"
+  warn "Certbot đã có"
 fi
 
 # ============================================================
-# BÆ¯á»šC 7: Cáº¤U HÃŒNH FIREWALL (UFW)
+# BƯỚC 7: CẤU HÌNH FIREWALL (UFW)
 # ============================================================
-header "BÆ¯á»šC 7: Cáº¥u hÃ¬nh Firewall"
+header "BƯỚC 7: Cấu hình Firewall (UFW)"
+# Lưu ý: CSF đã ngừng phát triển từ 8/2025 → dùng UFW + Fail2Ban thay thế
 ufw --force reset
 ufw default deny incoming
 ufw default allow outgoing
-ufw allow ssh
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw allow 22/tcp
-# Má»Ÿ cÃ¡c port ná»™i bá»™ cho apps (khÃ´ng cáº§n má»Ÿ public)
-# Port 3010, 3011, 5174, 5175, 3000 chá»‰ dÃ¹ng internal qua nginx
+ufw allow 22/tcp    comment 'SSH'
+ufw allow 80/tcp    comment 'HTTP'
+ufw allow 443/tcp   comment 'HTTPS'
+ufw allow 10000/tcp comment 'Webmin'
+# Port 3010,3011,5174,5175,3000 chỉ dùng internal qua nginx - KHÔNG mở public
 ufw --force enable
-log "Firewall Ä‘Ã£ cáº¥u hÃ¬nh (SSH + HTTP + HTTPS)"
-ufw status
+log "Firewall UFW đã cấu hình (SSH + HTTP + HTTPS + Webmin)"
+ufw status verbose
 
 # ============================================================
-# BÆ¯á»šC 8: Cáº¤U HÃŒNH FAIL2BAN
+# BƯỚC 8: CẤU HÌNH FAIL2BAN
 # ============================================================
-header "BÆ¯á»šC 8: Cáº¥u hÃ¬nh Fail2Ban"
+header "BƯỚC 8: Cấu hình Fail2Ban (thay thế CSF brute-force protection)"
 cat > /etc/fail2ban/jail.local << 'EOF'
 [DEFAULT]
 bantime  = 3600
 findtime = 600
 maxretry = 5
+ignoreip = 127.0.0.1/8 ::1
 
 [sshd]
-enabled = true
-port    = ssh
-logpath = %(sshd_log)s
-backend = %(sshd_backend)s
+enabled  = true
+port     = ssh
+logpath  = %(sshd_log)s
+backend  = %(sshd_backend)s
+maxretry = 3
 
 [nginx-http-auth]
-enabled = true
+enabled  = true
 
 [nginx-limit-req]
-enabled = true
+enabled  = true
+filter   = nginx-limit-req
+action   = iptables-multiport[name=ReqLimit, port="http,https"]
+logpath  = /var/log/nginx/error.log
+findtime = 600
+bantime  = 7200
+maxretry = 10
 EOF
 systemctl enable fail2ban
 systemctl restart fail2ban
-log "Fail2Ban Ä‘Ã£ cáº¥u hÃ¬nh"
+log "Fail2Ban đã cấu hình"
 
 # ============================================================
-# BÆ¯á»šC 9: Táº O Cáº¤U TRÃšC THÆ¯ Má»¤C
+# BƯỚC 8B: CÀI WEBMIN (GUI quản lý tường lửa thay CSF)
 # ============================================================
-header "BÆ¯á»šC 9: Táº¡o cáº¥u trÃºc thÆ° má»¥c"
+header "BƯỚC 8B: Cài Webmin (GUI firewall thay thế CSF)"
+if ! command -v webmin &>/dev/null && [ ! -f /etc/webmin/miniserv.conf ]; then
+  # Cài dependencies
+  apt install -y perl libnet-ssleay-perl openssl libauthen-pam-perl \
+                 libpam-runtime libio-pty-perl apt-show-versions python3 \
+                 libwww-perl liblwp-protocol-https-perl 2>/dev/null || true
+
+  # Thêm Webmin repo
+  curl -fsSL https://download.webmin.com/jcameron-key.asc | gpg --dearmor -o /usr/share/keyrings/webmin.gpg 2>/dev/null
+  echo "deb [signed-by=/usr/share/keyrings/webmin.gpg] https://download.webmin.com/download/repository sarge contrib" \
+    > /etc/apt/sources.list.d/webmin.list
+  apt update -y
+  apt install -y webmin
+
+  # Cấu hình Webmin
+  systemctl enable webmin
+  systemctl start webmin
+
+  log "Webmin đã cài - truy cập: https://YOUR_VPS_IP:10000"
+  warn "Đăng nhập Webmin bằng user 'root' hoặc 'ubuntu' của VPS"
+  warn "Vào: Webmin → Networking → Linux Firewall để quản lý firewall bằng GUI"
+else
+  warn "Webmin đã có"
+fi
+
+# ============================================================
+# BƯỚC 9: TẠO CẤU TRÚC THƯ MỤC
+# ============================================================
+header "BƯỚC 9: Tạo cấu trúc thư mục"
 mkdir -p /var/www/wasypro
 mkdir -p /var/www/myspa
 mkdir -p /var/www/nhatro
 chown -R ubuntu:ubuntu /var/www/wasypro
 chown -R ubuntu:ubuntu /var/www/myspa
 chown -R ubuntu:ubuntu /var/www/nhatro
-log "ThÆ° má»¥c /var/www/wasypro, /var/www/myspa, /var/www/nhatro Ä‘Ã£ táº¡o"
+log "Thư mục /var/www/wasypro, /var/www/myspa, /var/www/nhatro đã tạo"
 
 # ============================================================
-# BÆ¯á»šC 10: NGINX VIRTUAL HOSTS
+# BƯỚC 10: NGINX VIRTUAL HOSTS
 # ============================================================
-header "BÆ¯á»šC 10: Cáº¥u hÃ¬nh Nginx Virtual Hosts"
+header "BƯỚC 10: Cấu hình Nginx Virtual Hosts"
 
 # ----- app.wasypro.com -----
 cat > /etc/nginx/sites-available/app.wasypro.com << 'NGINX'
@@ -261,18 +297,18 @@ ln -sf /etc/nginx/sites-available/jinshang.com.vn   /etc/nginx/sites-enabled/
 ln -sf /etc/nginx/sites-available/nhatro.storeviet.app /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 
-# Test vÃ  reload nginx
+# Test và reload nginx
 nginx -t && systemctl reload nginx
-log "Nginx virtual hosts Ä‘Ã£ cáº¥u hÃ¬nh"
+log "Nginx virtual hosts đã cấu hình"
 
 # ============================================================
-# BÆ¯á»šC 11: Táº O SCRIPT CHáº Y APPS
+# BƯỚC 11: TẠO SCRIPT CHẠY APPS
 # ============================================================
-header "BÆ¯á»šC 11: Táº¡o ecosystem PM2"
+header "BƯỚC 11: Tạo ecosystem PM2"
 
 cat > /home/ubuntu/start_all.sh << 'BASH'
 #!/bin/bash
-# Script khá»Ÿi Ä‘á»™ng táº¥t cáº£ apps
+# Script khởi động tất cả apps
 
 # ===== WASYPRO =====
 cd /var/www/wasypro
@@ -303,53 +339,53 @@ BASH
 
 chmod +x /home/ubuntu/start_all.sh
 chown ubuntu:ubuntu /home/ubuntu/start_all.sh
-log "Script start_all.sh Ä‘Ã£ táº¡o táº¡i /home/ubuntu/start_all.sh"
+log "Script start_all.sh đã tạo tại /home/ubuntu/start_all.sh"
 
 # ============================================================
-# BÆ¯á»šC 12: Táº O SCRIPT RESTORE DATABASE
+# BƯỚC 12: TẠO SCRIPT RESTORE DATABASE
 # ============================================================
-header "BÆ¯á»šC 12: Táº¡o script restore database"
+header "BƯỚC 12: Tạo script restore database"
 
 cat > /home/ubuntu/restore_db.sh << 'BASH'
 #!/bin/bash
-# Restore PostgreSQL database tá»« backup
-# DÃ¹ng: bash restore_db.sh /path/to/database_backup.sql
+# Restore PostgreSQL database từ backup
+# Dùng: bash restore_db.sh /path/to/database_backup.sql
 
 BACKUP_FILE="${1:-database_backup.sql}"
 
 if [ ! -f "$BACKUP_FILE" ]; then
-  echo "File khÃ´ng tÃ¬m tháº¥y: $BACKUP_FILE"
-  echo "DÃ¹ng: bash restore_db.sh /path/to/database_backup.sql"
+  echo "File không tìm thấy: $BACKUP_FILE"
+  echo "Dùng: bash restore_db.sh /path/to/database_backup.sql"
   exit 1
 fi
 
 DB_NAME="crm_dev"
 DB_USER="erp"
 
-echo "Äang restore database $DB_NAME tá»« $BACKUP_FILE..."
+echo "Đang restore database $DB_NAME từ $BACKUP_FILE..."
 sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${DB_NAME};"
 sudo -u postgres psql -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};"
 sudo -u postgres psql -d "${DB_NAME}" < "$BACKUP_FILE"
-echo "âœ“ Restore xong!"
+echo "✓ Restore xong!"
 BASH
 
 chmod +x /home/ubuntu/restore_db.sh
 chown ubuntu:ubuntu /home/ubuntu/restore_db.sh
-log "Script restore_db.sh Ä‘Ã£ táº¡o"
+log "Script restore_db.sh đã tạo"
 
 # ============================================================
-# Káº¾T THÃšC
+# KẾT THÚC
 # ============================================================
-header "âœ… CÃ€I Äáº¶T HOÃ€N Táº¤T!"
+header "✅ CÀI ĐẶT HOÀN TẤT!"
 echo ""
-echo "  ðŸ“ Code Ä‘á»ƒ táº¡i:    /var/www/{wasypro,myspa,nhatro}"
-echo "  ðŸš€ Cháº¡y apps:      bash /home/ubuntu/start_all.sh"
-echo "  ðŸ—„ï¸  Restore DB:     bash /home/ubuntu/restore_db.sh <file.sql>"
-echo "  ðŸ”’ Cáº¥p SSL:        sudo certbot --nginx -d yourdomain.com"
+echo "  📁 Code để tại:    /var/www/{wasypro,myspa,nhatro}"
+echo "  🚀 Chạy apps:      bash /home/ubuntu/start_all.sh"
+echo "  🗄️  Restore DB:     bash /home/ubuntu/restore_db.sh <file.sql>"
+echo "  🔒 Cấp SSL:        sudo certbot --nginx -d yourdomain.com"
 echo ""
 echo "  Port mapping:"
-echo "    app.wasypro.com   â†’ frontend :5175 | backend :3011"
-echo "    jinshang.com.vn   â†’ frontend :5174 | backend :3010"
-echo "    nhatro.storeviet  â†’ Next.js   :3000"
+echo "    app.wasypro.com   → frontend :5175 | backend :3011"
+echo "    jinshang.com.vn   → frontend :5174 | backend :3010"
+echo "    nhatro.storeviet  → Next.js   :3000"
 echo ""
-echo -e "${GREEN}Xong! Giá» chá»‰ cáº§n copy code vÃ o /var/www/ vÃ  cháº¡y start_all.sh${NC}"
+echo -e "${GREEN}Xong! Giờ chỉ cần copy code vào /var/www/ và chạy start_all.sh${NC}"
