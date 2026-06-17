@@ -1,0 +1,10 @@
+[sshd]
+enabled = true
+port = 22
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = -1
+findtime = 600
+action = %(action_)s
+         telegram
