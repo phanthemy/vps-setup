@@ -1,0 +1,12 @@
+[Unit]
+Description=Oracle Cloud Keep Alive Service (Prevents Reclamation of Free Instance)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/oracle_keep_alive.py
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
